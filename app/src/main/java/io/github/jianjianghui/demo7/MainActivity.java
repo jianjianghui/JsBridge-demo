@@ -1,14 +1,12 @@
 package io.github.jianjianghui.demo7;
 
-import androidx.activity.result.ActivityResult;
-import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
 
 import android.app.Activity;
-import android.app.Instrumentation;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -19,21 +17,25 @@ import android.webkit.WebView;
 import android.widget.Button;
 import android.widget.Toast;
 
-import com.github.lzyzsd.jsbridge.BridgeWebView;
-
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Base64;
 import java.util.Date;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 
 import io.github.jianjianghui.bridge.BridgeCaller;
 import io.github.jianjianghui.bridge.BridgeFactory;
 import io.github.jianjianghui.bridge.BridgeRegister;
 import kotlin.Pair;
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
@@ -79,16 +81,56 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                             in.close();
                             String s = Base64.getEncoder().encodeToString(bytes);
 
-                            System.out.println("向JS发送图片数据"+s);
-                            caller.call("loadImage", currentPhotoPath, result -> {
-                                Toast.makeText(this.getApplicationContext(),result,Toast.LENGTH_LONG).show();
+                            OkHttpClient client = new OkHttpClient().newBuilder()
+                                    .build();
+                            MediaType mediaType = MediaType.parse("text/plain");
+                            RequestBody body = new MultipartBody.Builder().setType(MultipartBody.FORM)
+                                    .addFormDataPart("file","test.jpg",
+                                            RequestBody.create(MediaType.parse("application/octet-stream"),
+                                                    new File(currentPhotoPath)))
+                                    .build();
+                            Request request = new Request.Builder()
+                                    .url("https://file.io/~/"+"test.jpg")
+                                    .method("POST", body)
+                                    .addHeader("authority", "file.io")
+                                    .addHeader("accept", "application/json, text/plain, */*")
+                                    .addHeader("accept-language", "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7")
+                                    .addHeader("authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4NGNkMDUwMC1hYjc3LTExZWQtYjVkOC0zZjkyZjIxNWVkNmUiLCJpYXQiOjE2NzYyNzY1MzMsImV4cCI6MTY3NjM2MjkzM30.pT8Vln-pvXZuBAOsTEwaQFM6UPYITH4HhLheFRAOG00")
+                                    .addHeader("origin", "https://www.file.io")
+                                    .addHeader("referer", "https://www.file.io/")
+                                    .addHeader("sec-ch-ua", "\"Not_A Brand\";v=\"99\", \"Google Chrome\";v=\"109\", \"Chromium\";v=\"109\"")
+                                    .addHeader("sec-ch-ua-mobile", "?0")
+                                    .addHeader("sec-ch-ua-platform", "\"Windows\"")
+                                    .addHeader("sec-fetch-dest", "empty")
+                                    .addHeader("sec-fetch-mode", "cors")
+                                    .addHeader("sec-fetch-site", "same-site")
+                                    .addHeader("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36")
+                                    .build();
+                            AtomicReference<String> string = new AtomicReference<>();
+
+                                    Thread thread = new Thread(() -> {
+                                Response response = null;
+                                try {
+                                    response = client.newCall(request).execute();
+
+                                    string.set(response.body().string());
+                                    sendImage(string.get());
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
+
                             });
-                            caller.call("sayHi", "{\"code\":0,\"message\":\"Hello,I am native.\"}", result -> {
-                                Toast.makeText(this.getApplicationContext(),result,Toast.LENGTH_LONG).show();
-                            });
+                            thread.start();
+
+//
+//                            caller.call("sayHi", "{\"code\":0,\"message\":\"Hello,I am native.\"}", result -> {
+//                                Toast.makeText(this.getApplicationContext(),result,Toast.LENGTH_LONG).show();
+//                            });
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
+
+
                     }
                 });
 
@@ -114,6 +156,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             return "";
         });
         caller = bridgeCallerPair.getSecond();
+    }
+
+    private void sendImage(String params) {
+        MainActivity.this.runOnUiThread(()->{
+                caller.call("loadImage", params, result -> {
+                    Toast.makeText(this.getApplicationContext(),result,Toast.LENGTH_LONG).show();
+                });
+        });
+
     }
 
     private File createImageFile() throws IOException {

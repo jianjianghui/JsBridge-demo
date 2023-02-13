@@ -127,22 +127,9 @@
         });
 
         bridge.registerHandler("loadImage", function (data, responseCallback) {
-            console.log("接受图片 :"+responseCallback);
-            // document.getElementById("img").src = JSON.parse(data).data;
-            // if (responseCallback) {
-            //     var responseData = "I am from Javascript";
-            //     window.WebViewJavascriptBridge.callHandler(
-            //         'sayHi'
-            //         , {'msg': '测试'}
-            //         , function (responseData) {
-            //             console.log('For Native: ' + responseData)
-            //         }
-            //     );
-            //     responseCallback(responseData);
-            // }
+            console.log("接受图片 :"+data);
+             document.getElementById("img").innerHTML = "免费的文件上传API,请粘贴至浏览器下载:"+JSON.parse(data).link;
 
-            console.log("原生 调用 JS");
-            document.getElementById("img").innerHTML = ("data from Java: = " + data);
             if (responseCallback) {
                 var responseData = "I am from Javascript";
                 responseCallback(responseData);
